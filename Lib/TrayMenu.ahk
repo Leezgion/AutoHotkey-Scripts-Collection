@@ -6,19 +6,21 @@
 ;   - 开机自启动管理
 ;   - 动态显示置顶窗口菜单（仅当脚本运行时显示）
 ;   - 动态显示截图悬浮菜单（仅当脚本运行时显示）
+;   - 动态显示屏幕取色菜单（仅当脚本运行时显示）
 ; =================================================
 
 ; -------------------------------------------------
 ; SetupTrayMenu - 初始化托盘菜单
 ; -------------------------------------------------
 SetupTrayMenu() {
-    global ScriptMenu, StartupMenu, PinnedWindowsMenu, ScreenshotMenu
+    global ScriptMenu, StartupMenu, PinnedWindowsMenu, ScreenshotMenu, ColorPickerMenu
 
     ; 创建子菜单对象
     ScriptMenu := Menu()
     StartupMenu := Menu()
     PinnedWindowsMenu := Menu()
     ScreenshotMenu := Menu()
+    ColorPickerMenu := Menu()
 
     ; 重建完整菜单
     RebuildMainMenu()
@@ -60,8 +62,14 @@ RebuildMainMenu() {
         A_TrayMenu.Add("📸 截图悬浮", ScreenshotMenu)
     }
 
+    ; 动态显示屏幕取色菜单（仅当取色脚本运行时显示）
+    if IsColorPickerScriptRunning() {
+        BuildColorPickerMenu()
+        A_TrayMenu.Add("🎨 屏幕取色", ColorPickerMenu)
+    }
+
     ; 如果有任一功能菜单显示，添加分隔线
-    if (IsPinnedWindowScriptRunning() || IsScreenshotScriptRunning())
+    if (IsPinnedWindowScriptRunning() || IsScreenshotScriptRunning() || IsColorPickerScriptRunning())
         A_TrayMenu.Add()
 
     ; 其他选项
@@ -106,6 +114,19 @@ IsScreenshotScriptRunning() {
 }
 
 ; -------------------------------------------------
+; IsColorPickerScriptRunning - 检查屏幕取色脚本是否运行
+; -------------------------------------------------
+IsColorPickerScriptRunning() {
+    global ScriptList
+
+    for script in ScriptList {
+        if InStr(script.Name, "屏幕取色") && script.Running
+            return true
+    }
+    return false
+}
+
+; -------------------------------------------------
 ; UpdateTrayMenu - 更新托盘菜单内容
 ; -------------------------------------------------
 UpdateTrayMenu() {
@@ -137,7 +158,7 @@ MenuToggleManagerAutoStart(ItemName, ItemPos, MyMenu) {
 ; 启用管理器开机自启动
 EnableManagerAutoStart() {
     global ScriptFolder
-    
+
     shortcutPath := A_Startup "\ScriptManager.lnk"
 
     ; 使用 ScriptFolder 构建正确的路径
@@ -411,15 +432,12 @@ MenuSendChangeColor(ItemName, ItemPos, MyMenu) {
 GetPinnedWindowScriptHwnd() {
     DetectHiddenWindows(true)
 
-    ; 尝试多种方式查找置顶窗口脚本
-    if WinExist("置顶窗口.ahk ahk_class AutoHotkey")
-        return WinGetID()
-
-    ; 通过完整路径查找
-    global ScriptFolder
-    fullPath := ScriptFolder "\置顶窗口.ahk"
-    if WinExist(fullPath " ahk_class AutoHotkey")
-        return WinGetID()
+    ; 遍历所有 AutoHotkey 窗口查找置顶窗口脚本
+    for hwnd in WinGetList("ahk_class AutoHotkey") {
+        title := WinGetTitle(hwnd)
+        if InStr(title, "置顶窗口")
+            return hwnd
+    }
 
     return 0
 }
@@ -479,15 +497,12 @@ MenuSendCloseAllScreenshots(ItemName, ItemPos, MyMenu) {
 GetScreenshotScriptHwnd() {
     DetectHiddenWindows(true)
 
-    ; 尝试多种方式查找截图悬浮脚本
-    if WinExist("截图悬浮.ahk ahk_class AutoHotkey")
-        return WinGetID()
-
-    ; 通过完整路径查找
-    global ScriptFolder
-    fullPath := ScriptFolder "\截图悬浮.ahk"
-    if WinExist(fullPath " ahk_class AutoHotkey")
-        return WinGetID()
+    ; 遍历所有 AutoHotkey 窗口查找截图悬浮脚本
+    for hwnd in WinGetList("ahk_class AutoHotkey") {
+        title := WinGetTitle(hwnd)
+        if InStr(title, "截图悬浮")
+            return hwnd
+    }
 
     return 0
 }
@@ -520,5 +535,83 @@ SendCloseAllScreenshotsCommand() {
         }
     } else {
         ShowNotification("⚠️ 提示", "截图悬浮脚本未运行")
+    }
+}
+
+; =================================================
+; 屏幕取色回调函数
+; =================================================
+
+MenuSendStartColorPicker(ItemName, ItemPos, MyMenu) {
+    SendStartColorPickerCommand()
+}
+
+MenuSendShowColorHistory(ItemName, ItemPos, MyMenu) {
+    SendShowColorHistoryCommand()
+}
+
+; -------------------------------------------------
+; 构建屏幕取色子菜单
+; -------------------------------------------------
+BuildColorPickerMenu() {
+    global ColorPickerMenu
+
+    try ColorPickerMenu.Delete()
+
+    ColorPickerMenu.Add("🎨 开始取色", MenuSendStartColorPicker)
+    ColorPickerMenu.Add("📋 颜色历史", MenuSendShowColorHistory)
+    ColorPickerMenu.Add()
+    ColorPickerMenu.Add("⌨️ 快捷键说明", MenuDummy)
+    ColorPickerMenu.Disable("⌨️ 快捷键说明")
+    ColorPickerMenu.Add("    Win+Shift+C 开始取色", MenuDummy)
+    ColorPickerMenu.Disable("    Win+Shift+C 开始取色")
+    ColorPickerMenu.Add("    左键点击 复制颜色", MenuDummy)
+    ColorPickerMenu.Disable("    左键点击 复制颜色")
+    ColorPickerMenu.Add("    右键点击 切换格式", MenuDummy)
+    ColorPickerMenu.Disable("    右键点击 切换格式")
+    ColorPickerMenu.Add("    滚轮 调整放大倍数", MenuDummy)
+    ColorPickerMenu.Disable("    滚轮 调整放大倍数")
+}
+
+; -------------------------------------------------
+; 发送命令到屏幕取色脚本 (使用 PostMessage)
+; 消息编号: 0x3001=开始取色, 0x3002=显示历史
+; -------------------------------------------------
+GetColorPickerScriptHwnd() {
+    DetectHiddenWindows(true)
+
+    ; 遍历所有 AutoHotkey 窗口查找屏幕取色脚本
+    for hwnd in WinGetList("ahk_class AutoHotkey") {
+        title := WinGetTitle(hwnd)
+        if InStr(title, "屏幕取色")
+            return hwnd
+    }
+
+    return 0
+}
+
+SendStartColorPickerCommand() {
+    hwnd := GetColorPickerScriptHwnd()
+    if (hwnd) {
+        try {
+            SendMessage(0x3001, 0, 0, , "ahk_id " hwnd, , , 1000)
+        } catch {
+            PostMessage(0x3001, 0, 0, , "ahk_id " hwnd)
+        }
+    } else {
+        ShowNotification("⚠️ 提示", "屏幕取色脚本未运行")
+    }
+}
+
+SendShowColorHistoryCommand() {
+    hwnd := GetColorPickerScriptHwnd()
+    if (hwnd) {
+        try {
+            SendMessage(0x3002, 0, 0, , "ahk_id " hwnd, , , 1000)
+        } catch {
+            PostMessage(0x3002, 0, 0, , "ahk_id " hwnd)
+        }
+    } else {
+        ShowNotification("⚠️ 提示", "屏幕取色脚本未运行")
     }
 }

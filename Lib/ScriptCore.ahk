@@ -44,13 +44,13 @@ IsScriptRunning(scriptPath) {
     ; 通过窗口标题检测 AHK 脚本是否运行
     DetectHiddenWindows(true)
 
-    ; 尝试多种匹配模式
-    if WinExist(scriptPath " - AutoHotkey")
-        return true
-    if WinExist(scriptPath " ahk_class AutoHotkey")
-        return true
-    if WinExist(scriptName " - AutoHotkey")
-        return true
+    ; 遍历所有 AutoHotkey 窗口查找匹配
+    for hwnd in WinGetList("ahk_class AutoHotkey") {
+        title := WinGetTitle(hwnd)
+        ; 检查窗口标题是否包含脚本路径或文件名
+        if InStr(title, scriptPath) || InStr(title, scriptName)
+            return true
+    }
 
     return false
 }
@@ -60,7 +60,7 @@ IsScriptRunning(scriptPath) {
 ; -------------------------------------------------
 ToggleScript(scriptPath) {
     wasRunning := IsScriptRunning(scriptPath)
-    
+
     if wasRunning {
         StopScript(scriptPath)
     } else {
@@ -105,15 +105,16 @@ StopScript(scriptPath, showNotify := true) {
 
     try {
         closed := false
-        if WinExist(scriptPath " - AutoHotkey") {
-            WinClose()
-            closed := true
-        } else if WinExist(scriptPath " ahk_class AutoHotkey") {
-            WinClose()
-            closed := true
-        } else if WinExist(scriptName " - AutoHotkey") {
-            WinClose()
-            closed := true
+
+        ; 遍历所有 AutoHotkey 窗口查找匹配的脚本
+        for hwnd in WinGetList("ahk_class AutoHotkey") {
+            title := WinGetTitle(hwnd)
+            ; 检查窗口标题是否包含脚本路径或文件名
+            if InStr(title, scriptPath) || InStr(title, scriptName) {
+                WinClose(hwnd)
+                closed := true
+                break
+            }
         }
 
         if closed && showNotify
