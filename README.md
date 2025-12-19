@@ -1,4 +1,4 @@
-# 🎛️ AutoHotkey Scripts Collection
+# 🎛️ AutoHotkey Script Manager
 
 <div align="center">
 
@@ -16,171 +16,118 @@
 
 ## 🌐 English
 
-A collection of useful AutoHotkey v2 scripts to enhance your Windows productivity, featuring a centralized script manager.
+A modular AutoHotkey v2 script management system with centralized control, featuring color picker, screenshot floating, and window pinning tools.
+
+### ✨ Features
+
+- 🎨 **Color Picker** - Screen color picking with magnifier, multiple formats (HEX/RGB/HSL), color history
+- 📸 **Screenshot Float** - Region capture with draggable floating windows, zoom, transparency control
+- 📌 **Window Pin** - Pin any window always-on-top with colorful border indicators
+- 🌍 **i18n Support** - Multi-language interface (English/Chinese)
+- ⚙️ **Settings Panel** - GUI-based configuration management
+- 🔧 **Module System** - Enable/disable individual features as needed
 
 ### 📁 Project Structure
 
 ```
 AutoHotkey/
-├── 📜 ScriptManager.ahk       # Central script manager
-├── 📌 置顶窗口.ahk            # Window pin tool with colored borders
-├── 📸 截图悬浮.ahk            # Screenshot floating tool
-├── 🎨 屏幕取色.ahk            # Screen color picker tool
-├── 📁 Lib/                    # Modular library
-│   ├── Utils.ahk              # Utility functions
-│   ├── ScriptCore.ahk         # Script control core
-│   ├── AutoStart.ahk          # Auto-start management
-│   └── TrayMenu.ahk           # Tray menu module
-├── 📁 Screenshots/            # Screenshot save directory
-└── 📄 README.md
+├── ScriptManager.ahk           # 🚀 Main entry point
+├── ColorPicker.ahk             # 🎨 Standalone color picker
+├── ScreenshotFloat.ahk         # 📸 Standalone screenshot tool
+├── WindowPin.ahk               # 📌 Standalone window pin tool
+│
+├── Modules/                    # 📦 Core modules
+│   ├── ColorPicker/
+│   │   ├── Picker.ahk          # Main color picker logic
+│   │   ├── Magnifier.ahk       # Magnifier component
+│   │   ├── History.ahk         # Color history panel
+│   │   └── Converter.ahk       # Color format converter
+│   ├── Screenshot/
+│   │   ├── Capture.ahk         # Screen capture logic
+│   │   ├── Selection.ahk       # Region selection UI
+│   │   └── FloatWindow.ahk     # Floating window manager
+│   └── PinWindow/
+│       ├── Pin.ahk             # Window pinning logic
+│       └── Border.ahk          # Border drawing component
+│
+├── GUI/                        # 🖼️ GUI components
+│   ├── MainWindow.ahk          # Main control panel
+│   ├── SettingsWindow.ahk      # Settings dialog
+│   └── AboutDialog.ahk         # About dialog
+│
+├── Lib/                        # 📚 Shared libraries
+│   ├── Constants.ahk           # Global constants & defaults
+│   ├── ConfigManager.ahk       # INI configuration handler
+│   ├── I18n.ahk                # Internationalization system
+│   ├── Logger.ahk              # Logging utility
+│   ├── GDIPlus.ahk             # GDI+ wrapper
+│   ├── StateMachine.ahk        # State machine base class
+│   ├── Theme.ahk               # UI theme definitions
+│   ├── Utils.ahk               # Common utilities
+│   └── ...
+│
+├── Lang/                       # 🌍 Language files
+│   ├── en-US.ahk               # English translations
+│   └── zh-CN.ahk               # Chinese translations
+│
+├── Config/                     # ⚙️ Configuration files
+│   ├── settings.ini            # Application settings
+│   └── hotkeys.ini             # Hotkey mappings
+│
+└── Screenshots/                # 📷 Screenshot output folder
 ```
 
-### 📋 Scripts
+### 🚀 Quick Start
 
-#### 1. 🎛️ Script Manager (ScriptManager.ahk)
+1. **Requirements**
+   - Windows 10/11
+   - [AutoHotkey v2.0+](https://www.autohotkey.com/)
 
-A centralized management tool for all your AutoHotkey scripts.
-
-**Features:**
-
-- 📜 Start/Stop/Reload individual scripts via tray menu
-- 🚀 Manage auto-start settings for each script
-- 🖥️ Manager auto-start option (start manager on Windows boot)
-- 📌 Integrated window pin controls (when pin script is running)
-- 📸 Integrated screenshot controls (when screenshot script is running)
-- 🎨 Integrated color picker controls (when color picker script is running)
-- 🔄 Batch operations: Start All / Stop All / Reload All
-- 📊 Real-time status display in tray menu
-- 🎯 Single tray icon for all managed scripts
-
-**Hotkeys:**
-
-| Hotkey | Function |
-|--------|----------|
-| `Win + Alt + A` | Start all scripts |
-| `Win + Alt + S` | Stop all scripts |
-| `Win + Alt + R` | Reload all scripts |
-
----
-
-#### 2. 📌 Window Pin Tool (置顶窗口.ahk)
-
-Pin any window to stay always on top with a colorful visual border indicator.
-
-**Features:**
-
-- 📌 Pin any window to stay always on top
-- 🌈 10 different border colors, auto-assigned per window
-- ✨ Flash animation when pinning
-- 🔊 Sound feedback (can be disabled)
-- 🖥️ Support for multiple pinned windows
-- ⚡ Ultra-low latency border tracking (10ms refresh)
-- 🪟 Smart handling of minimized windows
-- 🎯 No tray icon (managed by Script Manager)
-
-**Hotkeys:**
-
-| Hotkey | Function |
-|--------|----------|
-| `CapsLock + Space` | Toggle pin for current window |
-| `CapsLock + Esc` | Unpin ALL windows |
-| `CapsLock + Tab` | Cycle through pinned windows |
-| `CapsLock + C` | Change border color of current window |
-
-**Available Border Colors:**
-🟢 Green · 🔴 Coral Red · 🔵 Cyan · 🟡 Gold · 🟢 Mint · 🩷 Pink · 🟣 Lavender · 🔵 Teal · 🟠 Orange · 🔵 Sky Blue
-
----
-
-#### 3. 📸 Screenshot Floating Tool (截图悬浮.ahk)
-
-Capture screen regions and display as floating windows, similar to Snipaste.
-
-**Features:**
-
-- 📸 Region selection with crosshair cursor
-- 🖼️ Auto-floating display after capture
-- 🔝 Always on top floating windows
-- 🖱️ Drag to move floating screenshots
-- 🔍 Scroll wheel to zoom in/out
-- 🌫️ Ctrl + scroll to adjust transparency
-- 📋 Copy screenshot to clipboard
-- 💾 Save screenshot to file
-- 🪟 Support multiple floating windows simultaneously
-- 🎯 No tray icon (managed by Script Manager)
-
-**Hotkeys:**
-
-| Hotkey | Function |
-|--------|----------|
-| `Win + Shift + S` | Start screenshot (region selection) |
-| `Escape` | Cancel screenshot / Close focused floating window |
-| `Win + Shift + Q` | Close ALL floating windows |
-
-**Floating Window Controls (when window is focused):**
-
-| Action | Function |
-|--------|----------|
-| Left-click drag | Move window |
-| Scroll wheel | Zoom in/out |
-| `Ctrl` + Scroll | Adjust transparency |
-| Right-click | Close current floating window |
-| `Ctrl + C` | Copy to clipboard |
-| `Ctrl + S` | Save to file |
-
----
-
-#### 4. 🎨 Screen Color Picker (屏幕取色.ahk)
-
-Pick colors from anywhere on the screen with magnifier and multiple format support.
-
-**Features:**
-
-- 🔍 Magnifier glass for precise color picking
-- 🎨 Real-time color preview
-- 📝 Multiple color formats (HEX, RGB, HSL)
-- 📚 Color history (last 10 colors, auto-refreshes)
-- 🔄 Scroll wheel to adjust magnification (2x-20x)
-- 📋 Click to copy color value
-- 📍 Access via tray menu when script is running
-- 🎯 No tray icon (managed by Script Manager)
-
-**Hotkeys:**
-
-| Hotkey | Function |
-|--------|----------|
-| `Win + Shift + C` | Start color picking |
-| `Left Click` | Copy color and exit |
-| `Right Click` | Switch color format (HEX/RGB/HSL) |
-| `Scroll Wheel` | Adjust magnification |
-| `Escape` | Cancel color picking |
-
----
-
-### 🚀 Getting Started
-
-1. **Install AutoHotkey v2.0**
-   - Download from [AutoHotkey.com](https://www.autohotkey.com/)
-   - Choose **v2.0** (required)
-
-2. **Download Scripts**
-
-   ```bash
-   git clone https://github.com/yourusername/AutoHotkey.git
+2. **Run**
+   ```
+   Double-click ScriptManager.ahk
    ```
 
-3. **Run Script Manager**
-   - Double-click `ScriptManager.ahk`
-   - Right-click tray icon to manage all scripts
+3. **Access via Tray**
+   - Right-click tray icon for quick actions
+   - Double-click to start color picker (default)
 
-4. **Set Auto-Start (Optional)**
-   - Right-click tray icon → "开机自启动" → Enable desired scripts
-   - Right-click tray icon → "管理器开机自启" → Enable manager auto-start
+### ⌨️ Hotkeys
 
-### 📝 Requirements
+| Hotkey | Function |
+|--------|----------|
+| `Alt + C` | 🎨 Start color picker |
+| `Alt + S` | 📸 Start screenshot |
+| `Alt + T` | 📌 Toggle pin current window |
+| `Alt + Shift + T` | Unpin all windows |
+| `Alt + Shift + C` | Change border color |
+| `Ctrl + Alt + A` | Close all floating screenshots |
 
-- Windows 10/11
-- AutoHotkey **v2.0** or later
+### 🎨 Color Picker Usage
+
+- **Left Click** - Copy color to clipboard
+- **Right Click** - Switch color format (HEX → RGB → HSL)
+- **Scroll Wheel** - Adjust magnification (2x - 20x)
+- **ESC** - Cancel picking
+
+### 📸 Screenshot Usage
+
+- **Drag** - Select region to capture
+- **ESC** - Cancel selection
+- On floating window:
+  - **Drag** - Move window
+  - **Scroll** - Zoom in/out
+  - **Ctrl + Scroll** - Adjust transparency
+  - **Ctrl + C** - Copy to clipboard
+  - **Ctrl + S** - Save to file
+  - **Right Click / ESC** - Close window
+
+### 📌 Window Pin Usage
+
+- Pinned windows get colorful borders (10 colors available)
+- **CapsLock + Space** - Toggle pin (alternative)
+- **CapsLock + Tab** - Cycle through pinned windows
+- **CapsLock + C** - Change border color
 
 ---
 
@@ -188,196 +135,117 @@ Pick colors from anywhere on the screen with magnifier and multiple format suppo
 
 ## 🌐 中文
 
-一个实用的 AutoHotkey v2 脚本合集，提升你的 Windows 使用效率，配备集中式脚本管理器。
+一个模块化的 AutoHotkey v2 脚本管理系统，集成屏幕取色、截图悬浮、窗口置顶等实用工具。
+
+### ✨ 功能特点
+
+- 🎨 **屏幕取色** - 放大镜取色，支持 HEX/RGB/HSL 多格式，颜色历史记录
+- 📸 **截图悬浮** - 区域截图，可拖动悬浮窗，支持缩放与透明度调节
+- 📌 **窗口置顶** - 任意窗口置顶，彩色边框标识
+- 🌍 **多语言** - 支持中英文界面切换
+- ⚙️ **设置面板** - 图形化配置管理
+- 🔧 **模块系统** - 按需启用/禁用功能模块
 
 ### 📁 项目结构
 
 ```
 AutoHotkey/
-├── 📜 ScriptManager.ahk       # 集中管理工具
-├── 📌 置顶窗口.ahk            # 窗口置顶工具（彩色边框）
-├── 📸 截图悬浮.ahk            # 截图悬浮工具
-├── 🎨 屏幕取色.ahk            # 屏幕取色工具
-├── 📁 Lib/                    # 模块化代码库
-│   ├── Utils.ahk              # 通用工具函数
-│   ├── ScriptCore.ahk         # 脚本控制核心
-│   ├── AutoStart.ahk          # 开机自启管理
-│   └── TrayMenu.ahk           # 托盘菜单模块
-├── 📁 Screenshots/            # 截图保存目录
-└── 📄 README.md
+├── ScriptManager.ahk           # 🚀 主入口
+├── ColorPicker.ahk             # 🎨 独立取色工具
+├── ScreenshotFloat.ahk         # 📸 独立截图工具  
+├── WindowPin.ahk               # 📌 独立置顶工具
+│
+├── Modules/                    # 📦 核心模块
+│   ├── ColorPicker/            # 取色器模块
+│   ├── Screenshot/             # 截图模块
+│   └── PinWindow/              # 置顶模块
+│
+├── GUI/                        # 🖼️ GUI 组件
+│   ├── MainWindow.ahk          # 主控制面板
+│   ├── SettingsWindow.ahk      # 设置窗口
+│   └── AboutDialog.ahk         # 关于对话框
+│
+├── Lib/                        # 📚 公共库
+│   ├── Constants.ahk           # 全局常量
+│   ├── ConfigManager.ahk       # 配置管理器
+│   ├── I18n.ahk                # 国际化系统
+│   └── ...                     # 其他工具库
+│
+├── Lang/                       # 🌍 语言文件
+│   ├── en-US.ahk               # 英文
+│   └── zh-CN.ahk               # 中文
+│
+├── Config/                     # ⚙️ 配置文件
+│   ├── settings.ini            # 应用设置
+│   └── hotkeys.ini             # 快捷键配置
+│
+└── Screenshots/                # 📷 截图保存目录
 ```
-
-### 📋 脚本列表
-
-#### 1. 🎛️ 脚本管理器 (ScriptManager.ahk)
-
-统一管理所有 AutoHotkey 脚本的集中控制工具。
-
-**功能特点：**
-
-- 📜 通过托盘菜单启动/停止/重载单个脚本
-- 🚀 管理每个脚本的开机自启动设置
-- 🖥️ 管理器开机自启选项（Windows 启动时自动运行管理器）
-- 📌 集成置顶窗口控制（当置顶脚本运行时显示）
-- 📸 集成截图悬浮控制（当截图脚本运行时显示）
-- 🎨 集成屏幕取色控制（当取色脚本运行时显示）
-- 🔄 批量操作：全部启动 / 全部停止 / 全部重载
-- 📊 托盘菜单实时显示运行状态
-- 🎯 所有脚本共用一个托盘图标
-
-**快捷键：**
-
-| 快捷键 | 功能 |
-|--------|------|
-| `Win + Alt + A` | 启动所有脚本 |
-| `Win + Alt + S` | 停止所有脚本 |
-| `Win + Alt + R` | 重载所有脚本 |
-
----
-
-#### 2. 📌 置顶窗口工具 (置顶窗口.ahk)
-
-将任意窗口置顶显示，并用彩色边框标识。
-
-**功能特点：**
-
-- 📌 将任意窗口置顶显示
-- 🌈 10种不同边框颜色，每个窗口自动分配
-- ✨ 置顶时边框闪烁动画
-- 🔊 声音反馈（可关闭）
-- 🖥️ 支持同时置顶多个窗口
-- ⚡ 超低延迟边框跟踪（10ms 刷新率）
-- 🪟 智能处理最小化窗口
-- 🎯 无托盘图标（由脚本管理器统一管理）
-
-**快捷键：**
-
-| 快捷键 | 功能 |
-|--------|------|
-| `CapsLock + Space` | 切换当前窗口置顶状态 |
-| `CapsLock + Esc` | 取消所有窗口置顶 |
-| `CapsLock + Tab` | 在置顶窗口间循环切换 |
-| `CapsLock + C` | 更换当前窗口边框颜色 |
-
-**可用边框颜色：**
-🟢 绿色 · 🔴 珊瑚红 · 🔵 青色 · 🟡 金黄 · 🟢 薄荷绿 · 🩷 粉红 · 🟣 淡紫 · 🔵 蓝绿 · 🟠 橙色 · 🔵 天蓝
-
----
-
-#### 3. 📸 截图悬浮工具 (截图悬浮.ahk)
-
-框选屏幕区域截图并悬浮显示，类似 Snipaste 功能。
-
-**功能特点：**
-
-- 📸 十字准星区域选择
-- 🖼️ 截图后自动悬浮显示
-- 🔝 悬浮窗始终置顶
-- 🖱️ 拖动移动悬浮窗位置
-- 🔍 滚轮缩放截图大小
-- 🌫️ Ctrl+滚轮调节透明度
-- 📋 复制截图到剪贴板
-- 💾 保存截图到文件
-- 🪟 支持同时显示多个悬浮截图
-- 🎯 无托盘图标（由脚本管理器统一管理）
-
-**快捷键：**
-
-| 快捷键 | 功能 |
-|--------|------|
-| `Win + Shift + S` | 开始截图（区域选择）|
-| `Escape` | 取消截图 / 关闭当前悬浮窗 |
-| `Win + Shift + Q` | 关闭所有悬浮窗 |
-
-**悬浮窗操作（窗口激活时）：**
-
-| 操作 | 功能 |
-|------|------|
-| 左键拖动 | 移动窗口 |
-| 滚轮 | 缩放大小 |
-| `Ctrl` + 滚轮 | 调节透明度 |
-| 右键 | 关闭当前悬浮窗 |
-| `Ctrl + C` | 复制到剪贴板 |
-| `Ctrl + S` | 保存到文件 |
-
----
-
-#### 4. 🎨 屏幕取色工具 (屏幕取色.ahk)
-
-从屏幕任意位置取色，支持放大镜和多种颜色格式。
-
-**功能特点：**
-
-- 🔍 放大镜效果，精确取色
-- 🎨 实时颜色预览
-- 📝 多种颜色格式 (HEX, RGB, HSL)
-- 📚 颜色历史记录 (最近10个，自动刷新)
-- 🔄 滚轮调整放大倍数 (2x-20x)
-- 📋 点击复制颜色值
-- 📍 脚本运行时可通过托盘菜单访问
-- 🎯 无托盘图标（由脚本管理器统一管理）
-
-**快捷键：**
-
-| 快捷键 | 功能 |
-|--------|------|
-| `Win + Shift + C` | 开始取色 |
-| 左键点击 | 复制颜色并退出 |
-| 右键点击 | 切换颜色格式 (HEX/RGB/HSL) |
-| 滚轮 | 调整放大倍数 |
-| `Escape` | 取消取色 |
-
----
 
 ### 🚀 快速开始
 
-1. **安装 AutoHotkey v2.0**
-   - 从 [AutoHotkey.com](https://www.autohotkey.com/) 下载
-   - 选择 **v2.0** 版本（必需）
+1. **系统要求**
+   - Windows 10/11
+   - [AutoHotkey v2.0+](https://www.autohotkey.com/)
 
-2. **下载脚本**
-
-   ```bash
-   git clone https://github.com/yourusername/AutoHotkey.git
+2. **运行**
+   ```
+   双击 ScriptManager.ahk
    ```
 
-3. **运行脚本管理器**
-   - 双击 `ScriptManager.ahk`
-   - 右键托盘图标管理所有脚本
+3. **托盘菜单**
+   - 右键点击托盘图标访问快捷功能
+   - 双击托盘图标启动取色器（默认）
 
-4. **设置开机自启（可选）**
-   - 右键托盘图标 → "开机自启动" → 启用需要的脚本
-   - 右键托盘图标 → "管理器开机自启" → 启用管理器自启动
+### ⌨️ 快捷键
 
-### 📝 系统要求
+| 快捷键 | 功能 |
+|--------|------|
+| `Alt + C` | 🎨 开始取色 |
+| `Alt + S` | 📸 开始截图 |
+| `Alt + T` | 📌 切换当前窗口置顶 |
+| `Alt + Shift + T` | 取消所有置顶 |
+| `Alt + Shift + C` | 更改边框颜色 |
+| `Ctrl + Alt + A` | 关闭所有悬浮截图 |
 
-- Windows 10/11
-- AutoHotkey **v2.0** 或更高版本
+### 🎨 取色器操作
+
+- **左键点击** - 复制颜色到剪贴板
+- **右键点击** - 切换颜色格式（HEX → RGB → HSL）
+- **滚轮** - 调整放大倍数（2x - 20x）
+- **ESC** - 取消取色
+
+### 📸 截图操作
+
+- **拖动** - 选择截图区域
+- **ESC** - 取消选择
+- 悬浮窗内：
+  - **拖动** - 移动窗口
+  - **滚轮** - 缩放大小
+  - **Ctrl + 滚轮** - 调整透明度
+  - **Ctrl + C** - 复制到剪贴板
+  - **Ctrl + S** - 保存到文件
+  - **右键 / ESC** - 关闭窗口
+
+### 📌 置顶操作
+
+- 置顶窗口会显示彩色边框（10种颜色自动分配）
+- **CapsLock + Space** - 切换置顶（备用）
+- **CapsLock + Tab** - 在置顶窗口间切换
+- **CapsLock + C** - 更改边框颜色
 
 ---
 
-## 🔧 Adding New Scripts / 添加新脚本
+## 📄 License
 
-To add a new script to be managed:
+MIT License - See [LICENSE](LICENSE) for details.
 
-1. Place your `.ahk` file in the root directory
-2. Add `#NoTrayIcon` at the top to hide its tray icon
-3. Restart Script Manager to detect the new script
+## 🤝 Contributing
 
-添加新脚本到管理器：
-
-1. 将 `.ahk` 文件放到根目录
-2. 在脚本开头添加 `#NoTrayIcon` 隐藏托盘图标
-3. 重启脚本管理器以检测新脚本
+Issues and Pull Requests are welcome!
 
 ---
 
-## 📄 License / 许可证
-
-MIT License
-
-## 🤝 Contributing / 贡献
-
-Feel free to submit issues and pull requests!
-
-欢迎提交 Issue 和 Pull Request！
+<div align="center">
+Made with ❤️ using AutoHotkey v2
+</div>

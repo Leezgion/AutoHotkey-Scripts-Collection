@@ -8,6 +8,17 @@
 ;   - 动态显示截图悬浮菜单（仅当脚本运行时显示）
 ;   - 动态显示屏幕取色菜单（仅当脚本运行时显示）
 ; =================================================
+; 依赖: Utils.ahk (ShowNotification)
+;       ScriptCore.ahk (脚本管理函数)
+;       AutoStart.ahk (自启动函数)
+; 注意: 此文件需要通过主入口文件引入
+; =================================================
+
+; ---------- 依赖引入 ----------
+; 在单独测试时可取消以下注释
+; #Include "%A_ScriptDir%\Lib\Utils.ahk"
+; #Include "%A_ScriptDir%\Lib\ScriptCore.ahk"
+; #Include "%A_ScriptDir%\Lib\AutoStart.ahk"
 
 ; -------------------------------------------------
 ; SetupTrayMenu - 初始化托盘菜单
