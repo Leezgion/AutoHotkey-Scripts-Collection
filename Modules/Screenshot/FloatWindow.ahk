@@ -2,6 +2,8 @@
 ; 🖼️ Screenshot/FloatWindow.ahk - 悬浮窗管理
 ; =================================================
 
+#Include ..\..\Lib\ConfigManager.ahk
+
 class FloatWindow {
     ; 类常量
     static MinSize := 50
@@ -144,15 +146,31 @@ class FloatWindow {
     ; 私有方法：绑定热键
     ; -------------------------------------------------
     _BindHotkeys() {
+        copyHk := ConfigManager.GetHotkey("Screenshot.CopyToClipboard")
+        saveHk := ConfigManager.GetHotkey("Screenshot.SaveToFile")
+        zoomInHk := ConfigManager.GetHotkey("Screenshot.FloatZoomIn")
+        zoomOutHk := ConfigManager.GetHotkey("Screenshot.FloatZoomOut")
+        opacityUpHk := ConfigManager.GetHotkey("Screenshot.IncreaseOpacity")
+        opacityDownHk := ConfigManager.GetHotkey("Screenshot.DecreaseOpacity")
+        closeHk := ConfigManager.GetHotkey("Screenshot.CloseFloat")
+
         HotIfWinActive("ahk_id " this.Hwnd)
         Hotkey("RButton", (*) => this.Close(), "On")
-        Hotkey("^c", (*) => this.CopyToClipboard(), "On")
-        Hotkey("^s", (*) => this.SaveToFile(), "On")
-        Hotkey("WheelUp", (*) => this.Zoom(1), "On")
-        Hotkey("WheelDown", (*) => this.Zoom(-1), "On")
-        Hotkey("^WheelUp", (*) => this.AdjustOpacity(1), "On")
-        Hotkey("^WheelDown", (*) => this.AdjustOpacity(-1), "On")
-        Hotkey("Escape", (*) => this.Close(), "On")
+
+        if (copyHk && copyHk != "" && copyHk != "None")
+            Hotkey(copyHk, (*) => this.CopyToClipboard(), "On")
+        if (saveHk && saveHk != "" && saveHk != "None")
+            Hotkey(saveHk, (*) => this.SaveToFile(), "On")
+        if (zoomInHk && zoomInHk != "" && zoomInHk != "None")
+            Hotkey(zoomInHk, (*) => this.Zoom(1), "On")
+        if (zoomOutHk && zoomOutHk != "" && zoomOutHk != "None")
+            Hotkey(zoomOutHk, (*) => this.Zoom(-1), "On")
+        if (opacityUpHk && opacityUpHk != "" && opacityUpHk != "None")
+            Hotkey(opacityUpHk, (*) => this.AdjustOpacity(1), "On")
+        if (opacityDownHk && opacityDownHk != "" && opacityDownHk != "None")
+            Hotkey(opacityDownHk, (*) => this.AdjustOpacity(-1), "On")
+        if (closeHk && closeHk != "" && closeHk != "None")
+            Hotkey(closeHk, (*) => this.Close(), "On")
         HotIf()
     }
 
@@ -161,15 +179,30 @@ class FloatWindow {
     ; -------------------------------------------------
     _UnbindHotkeys() {
         try {
+            copyHk := ConfigManager.GetHotkey("Screenshot.CopyToClipboard")
+            saveHk := ConfigManager.GetHotkey("Screenshot.SaveToFile")
+            zoomInHk := ConfigManager.GetHotkey("Screenshot.FloatZoomIn")
+            zoomOutHk := ConfigManager.GetHotkey("Screenshot.FloatZoomOut")
+            opacityUpHk := ConfigManager.GetHotkey("Screenshot.IncreaseOpacity")
+            opacityDownHk := ConfigManager.GetHotkey("Screenshot.DecreaseOpacity")
+            closeHk := ConfigManager.GetHotkey("Screenshot.CloseFloat")
+
             HotIfWinActive("ahk_id " this.Hwnd)
             Hotkey("RButton", "Off")
-            Hotkey("^c", "Off")
-            Hotkey("^s", "Off")
-            Hotkey("WheelUp", "Off")
-            Hotkey("WheelDown", "Off")
-            Hotkey("^WheelUp", "Off")
-            Hotkey("^WheelDown", "Off")
-            Hotkey("Escape", "Off")
+            if (copyHk && copyHk != "" && copyHk != "None")
+                Hotkey(copyHk, "Off")
+            if (saveHk && saveHk != "" && saveHk != "None")
+                Hotkey(saveHk, "Off")
+            if (zoomInHk && zoomInHk != "" && zoomInHk != "None")
+                Hotkey(zoomInHk, "Off")
+            if (zoomOutHk && zoomOutHk != "" && zoomOutHk != "None")
+                Hotkey(zoomOutHk, "Off")
+            if (opacityUpHk && opacityUpHk != "" && opacityUpHk != "None")
+                Hotkey(opacityUpHk, "Off")
+            if (opacityDownHk && opacityDownHk != "" && opacityDownHk != "None")
+                Hotkey(opacityDownHk, "Off")
+            if (closeHk && closeHk != "" && closeHk != "None")
+                Hotkey(closeHk, "Off")
             HotIf()
         }
     }
@@ -203,7 +236,8 @@ class FloatWindowManager {
         this.OnNotify := ""
 
         ; 注册 WM_NCHITTEST 消息处理
-        OnMessage(0x84, ObjBindMethod(this, "_OnNcHitTest"))
+        this._wmNcHitTest := ObjBindMethod(this, "_OnNcHitTest")
+        OnMessage(0x84, this._wmNcHitTest)
 
         ; 启动置顶检查定时器
         this._onTopTimer := ObjBindMethod(this, "_EnsureAllOnTop")
@@ -263,7 +297,7 @@ class FloatWindowManager {
     ; -------------------------------------------------
     Destroy() {
         SetTimer(this._onTopTimer, 0)
-        OnMessage(0x84, ObjBindMethod(this, "_OnNcHitTest"), 0)
+        OnMessage(0x84, this._wmNcHitTest, 0)
         this.CloseAll()
     }
 

@@ -4,7 +4,7 @@
 ; 功能：
 ;   - 读取/写入 INI 配置文件
 ;   - 支持 settings.ini 和 hotkeys.ini
-;   - 提供默认值回退
+;   - 在配置缺失时提供默认值
 ;   - 配置缓存以提高性能
 ; =================================================
 
@@ -100,7 +100,7 @@ class ConfigManager {
 
     ; -------------------------------------------------
     ; GetHotkey - 获取快捷键配置
-    ; 参数: key - 配置键路径，如 "picker.start" 或 "Global.ColorPicker"
+    ; 参数: key - 配置键路径，如 "picker.start" 或 "Global.OpenSettings"
     ; -------------------------------------------------
     static GetHotkey(key) {
         this.Init()
@@ -119,7 +119,8 @@ class ConfigManager {
             keyName := key
         }
 
-        return this.Get(section, keyName, "", "hotkeys")
+        hotkey := this.Get(section, keyName, "", "hotkeys")
+        return hotkey
     }
 
     ; -------------------------------------------------
@@ -285,13 +286,11 @@ SoundEnabled=true
 ; =================================================
 
 [Global]
-ColorPicker=#+c
-Screenshot=#+s
-PinWindow=CapsLock & Space
-OpenSettings=#+,
-Exit=#+q
+OpenSettings=!,
+Exit=!q
 
 [ColorPicker]
+Start=!c
 Cancel=Escape
 Copy=LButton
 ZoomIn=WheelUp
@@ -299,17 +298,19 @@ ZoomOut=WheelDown
 SwitchFormat=Tab
 
 [Screenshot]
+Start=!s
 Cancel=Escape
 Confirm=LButton
 CopyToClipboard=^c
 SaveToFile=^s
 CloseFloat=Escape
-CloseAllFloats=^a
+CloseAllFloats=^!a
 
 [PinWindow]
-UnpinAll=CapsLock & Escape
-SwitchFocus=CapsLock & Tab
-ChangeColor=CapsLock & c
+Toggle=!t
+UnpinAll=!+t
+SwitchFocus=!Tab
+ChangeColor=!+c
 )"
         FileAppend(content, this._hotkeysPath, "UTF-8")
     }

@@ -4,6 +4,7 @@
 
 #Include ..\..\Lib\GDIPlus.ahk
 #Include ..\..\Lib\Constants.ahk
+#Include ..\..\Lib\ConfigManager.ahk
 #Include Converter.ahk
 #Include Magnifier.ahk
 #Include History.ahk
@@ -24,7 +25,9 @@ class ColorPicker {
             MagnifierZoom: 8,
             PreviewSize: 50,
             MaxHistory: 10,
-            DefaultFormat: "HEX"
+            DefaultFormat: "HEX",
+            ShowGrid: true,
+            ShowCrosshair: true
         }
 
         ; 状态
@@ -45,6 +48,9 @@ class ColorPicker {
         this.OnCancel := ""
         this.OnNotify := ""
 
+        ; 运行时热键（用于解绑）
+        this._boundHotkeys := []
+
         ; 应用配置
         if config {
             for key, val in config.OwnProps() {
@@ -53,8 +59,11 @@ class ColorPicker {
             }
         }
 
+        ; 定时器回调（必须复用同一个引用，才能可靠停止）
+        this._updateTimerFn := ObjBindMethod(this, "_Update")
+
         this._currentFormat := this.Config.DefaultFormat
-        this._magnifier := Magnifier(this.Config.MagnifierSize, this.Config.MagnifierZoom)
+        this._magnifier := Magnifier(this.Config.MagnifierSize, this.Config.MagnifierZoom, this.Config.ShowGrid, this.Config.ShowCrosshair)
         this._history := ColorHistory(this.Config.MaxHistory)
     }
 
@@ -80,12 +89,28 @@ class ColorPicker {
         Cursor.SetCross()
 
         ; 绑定热键
-        Hotkey("*Escape", (*) => this.Cancel(), "On")
-        Hotkey("*WheelUp", (*) => this._OnZoom(1), "On")
-        Hotkey("*WheelDown", (*) => this._OnZoom(-1), "On")
+        this._boundHotkeys := []
+
+        cancelHk := ConfigManager.GetHotkey("ColorPicker.Cancel")
+        copyHk := ConfigManager.GetHotkey("ColorPicker.Copy")
+        zoomInHk := ConfigManager.GetHotkey("ColorPicker.ZoomIn")
+        zoomOutHk := ConfigManager.GetHotkey("ColorPicker.ZoomOut")
+        switchHk := ConfigManager.GetHotkey("ColorPicker.SwitchFormat")
+
+        bind := (hk, fn) => (
+            (hk && hk != "" && hk != "None")
+                ? (Hotkey("*" hk, fn, "On"), this._boundHotkeys.Push("*" hk), true)
+                : false
+        )
+
+        bind(cancelHk, (*) => this.Cancel())
+        bind(copyHk, (*) => this._CopyColorFromCursor())
+        bind(zoomInHk, (*) => this._OnZoom(1))
+        bind(zoomOutHk, (*) => this._OnZoom(-1))
+        bind(switchHk, (*) => this._SwitchFormat())
 
         ; 开始更新
-        SetTimer(ObjBindMethod(this, "_Update"), 16)
+        SetTimer(this._updateTimerFn, 16)
 
         return true
     }
@@ -98,14 +123,16 @@ class ColorPicker {
         this._state := ColorPicker.STATE_IDLE
 
         ; 停止定时器
-        SetTimer(ObjBindMethod(this, "_Update"), 0)
+        SetTimer(this._updateTimerFn, 0)
 
         ; 解除热键
         try {
-            Hotkey("*Escape", "Off")
-            Hotkey("*WheelUp", "Off")
-            Hotkey("*WheelDown", "Off")
+            if IsObject(this._boundHotkeys) {
+                for hkStr in this._boundHotkeys
+                    try Hotkey(hkStr, "Off")
+            }
         }
+        this._boundHotkeys := []
 
         ; 恢复鼠标
         Cursor.Restore()
@@ -237,25 +264,6 @@ class ColorPicker {
         if !this._infoGui || Type(this._infoGui) != "Gui"
             return
 
-        ; 检测鼠标状态
-        lBtn := DllCall("GetAsyncKeyState", "Int", 0x01, "Short") & 0x8000
-        rBtn := DllCall("GetAsyncKeyState", "Int", 0x02, "Short") & 0x8000
-
-        ; 左键释放 - 复制颜色
-        if (this._lButtonDown && !lBtn) {
-            this._lButtonDown := false
-            this._CopyColor()
-            return
-        }
-        this._lButtonDown := lBtn
-
-        ; 右键释放 - 切换格式
-        if (this._rButtonDown && !rBtn) {
-            this._rButtonDown := false
-            this._SwitchFormat()
-        }
-        this._rButtonDown := rBtn
-
         ; 获取鼠标位置
         CoordMode("Mouse", "Screen")
         MouseGetPos(&mx, &my)
@@ -386,6 +394,23 @@ class ColorPicker {
         }
 
         this._Notify("已复制: " copyText)
+    }
+
+    ; -------------------------------------------------
+    ; 私有方法：从当前鼠标位置复制颜色
+    ; -------------------------------------------------
+    _CopyColorFromCursor() {
+        if (this._state != ColorPicker.STATE_PICKING)
+            return
+
+        CoordMode("Mouse", "Screen")
+        MouseGetPos(&mx, &my)
+        color := this._GetPixelColor(mx, my)
+        if (color = -1)
+            return
+
+        this._lastColor := color
+        this._CopyColor()
     }
 
     ; -------------------------------------------------

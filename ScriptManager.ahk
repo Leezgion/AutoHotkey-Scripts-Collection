@@ -18,8 +18,10 @@ SetControlDelay(-1)
 
 ; ---------- 引入公共库 ----------
 #Include Lib\Constants.ahk
+#Include Lib\AutoStart.ahk
 #Include Lib\ConfigManager.ahk
 #Include Lib\GDIPlus.ahk
+#Include Lib\Hotkeys.ahk
 #Include Lib\I18n.ahk
 #Include Lib\Logger.ahk
 #Include Lib\Utils.ahk
@@ -30,7 +32,6 @@ SetControlDelay(-1)
 #Include Modules\PinWindow\Pin.ahk
 
 ; ---------- 引入 GUI ----------
-#Include GUI\MainWindow.ahk
 #Include GUI\SettingsWindow.ahk
 #Include GUI\AboutDialog.ahk
 
@@ -38,7 +39,6 @@ SetControlDelay(-1)
 global ColorPickerApp := ""
 global ScreenshotApp := ""
 global PinWindowApp := ""
-global MainWin := ""
 global SettingsWin := ""
 global AboutDlg := ""
 ; 模块启用状态
@@ -53,7 +53,7 @@ InitApplication()
 
 InitApplication() {
     global ColorPickerApp, ScreenshotApp, PinWindowApp
-    global MainWin, SettingsWin, AboutDlg
+    global SettingsWin, AboutDlg
     global ModuleEnabled
 
     ; 初始化 GDI+
@@ -66,32 +66,54 @@ InitApplication() {
     ; 初始化国际化
     I18n.Init()
 
+    ; 应用开机自启设置（管理器）
+    ApplyManagerAutoStartFromConfig(false)
+
     ; 从配置读取模块启用状态
     ModuleEnabled["ColorPicker"] := ConfigManager.Get("Modules", "ColorPicker", "true") = "true"
     ModuleEnabled["Screenshot"] := ConfigManager.Get("Modules", "Screenshot", "true") = "true"
     ModuleEnabled["PinWindow"] := ConfigManager.Get("Modules", "PinWindow", "true") = "true"
 
-    ; 创建取色器
-    ColorPickerApp := ColorPicker()
+    ; 创建取色器（从配置读取）
+    pickerConfig := {
+        DefaultFormat: ConfigManager.Get("ColorPicker", "DefaultFormat", "HEX"),
+        MagnifierZoom: Integer(ConfigManager.Get("ColorPicker", "ZoomLevel", "8")),
+        MagnifierSize: Integer(ConfigManager.Get("ColorPicker", "MagnifierSize", "150")),
+        MaxHistory: Integer(ConfigManager.Get("ColorPicker", "MaxHistory", "10")),
+        ShowGrid: ConfigManager.Get("ColorPicker", "ShowGrid", "true") = "true",
+        ShowCrosshair: ConfigManager.Get("ColorPicker", "ShowCrosshair", "true") = "true"
+    }
+    ColorPickerApp := ColorPicker(pickerConfig)
     ColorPickerApp.OnColorPicked := OnColorPicked
     ColorPickerApp.OnNotify := ShowNotify
 
-    ; 创建截图工具
+    ; 创建截图工具（从配置读取）
+    screenshotFolder := ConfigManager.Get("Screenshot", "SavePath", Paths.Screenshots)
+    defaultFormat := ConfigManager.Get("Screenshot", "DefaultFormat", "PNG")
+    autoCopy := ConfigManager.Get("Screenshot", "AutoCopy", "true") = "true"
+
     screenshotConfig := {
-        ScreenshotFolder: Paths.Screenshots,
-        DefaultFormat: "PNG",
-        AutoCopy: true
+        ScreenshotFolder: screenshotFolder,
+        DefaultFormat: defaultFormat,
+        AutoCopy: autoCopy
     }
     ScreenshotApp := ScreenCapture(screenshotConfig)
     ScreenshotApp.OnCapture := OnScreenshotCapture
     ScreenshotApp.OnNotify := ShowNotify
 
     ; 确保截图目录存在
-    if !DirExist(Paths.Screenshots)
-        DirCreate(Paths.Screenshots)
+    if !DirExist(screenshotFolder)
+        DirCreate(screenshotFolder)
 
-    ; 创建置顶工具（使用 Constants.ahk 的默认值）
-    PinWindowApp := WindowPinner()
+    ; 创建置顶工具（从配置读取）
+    pinConfig := {
+        BorderThickness: Integer(ConfigManager.Get("PinWindow", "BorderThickness", String(Defaults.PinBorderThickness))),
+        SoundEnabled: ConfigManager.Get("PinWindow", "SoundEnabled", "true") = "true",
+        FlashCount: Integer(ConfigManager.Get("PinWindow", "FlashCount", String(Defaults.PinFlashCount))),
+        FlashInterval: Integer(ConfigManager.Get("PinWindow", "FlashInterval", String(Defaults.PinFlashInterval))),
+        UpdateInterval: Integer(ConfigManager.Get("PinWindow", "UpdateInterval", String(Defaults.PinUpdateInterval)))
+    }
+    PinWindowApp := WindowPinner(pinConfig)
     PinWindowApp.OnPin := OnWindowPinned
     PinWindowApp.OnUnpin := OnWindowUnpinned
     PinWindowApp.OnNotify := ShowNotify
@@ -101,12 +123,74 @@ InitApplication() {
 
     ; 创建设置窗口
     SettingsWin := SettingsWindow()
+    SettingsWin.OnSave := OnSettingsSaved
     SettingsWin.OnModuleToggle := OnModuleToggle
 
     ; 设置托盘菜单
     SetupTrayMenu()
 
+    ; 注册快捷键（统一从 Config/hotkeys.ini 加载）
+    RegisterHotkeys()
+
     Logger.Info("ScriptManager initialized successfully")
+}
+
+OnSettingsSaved() {
+    ApplyManagerAutoStartFromConfig(true)
+}
+
+ApplyManagerAutoStartFromConfig(showNotify) {
+    enabled := ConfigManager.Get("General", "AutoStart", "false") = "true"
+    current := IsManagerAutoStartEnabled()
+    if (enabled = current)
+        return
+
+    ok := SetManagerAutoStartEnabled(enabled)
+    if showNotify {
+        if ok {
+            ShowNotify("✅", enabled ? T("Settings", "AutoStartEnabled", "已启用开机自启") : T("Settings", "AutoStartDisabled", "已关闭开机自启"))
+        } else {
+            ShowNotify("❌", T("Settings", "AutoStartFailed", "设置开机自启失败"))
+        }
+    }
+}
+
+; =================================================
+; 快捷键（统一入口）
+; =================================================
+RegisterHotkeys() {
+    _reg := (key, cb, ctx) => (
+        ok := HotkeyManager.Register(key, cb, ctx),
+        (!ok ? (
+            err := HotkeyManager.GetLastBindError(key),
+            Logger.Error("Hotkey bind failed: " key " = '" HotkeyManager.GetHotkey(key) "'" (err ? (" (" err ")") : "")),
+            ShowNotify("❌", "快捷键注册失败: " ctx (err ? ("\n" err) : ""))
+        ) : ""),
+        ok
+    )
+
+    ; 启动类快捷键（统一从 Config/hotkeys.ini 加载）
+    _reg("picker.start", (*) => TrayStartColorPicker(), "Start ColorPicker")
+    _reg("screenshot.start", (*) => TrayStartScreenshot(), "Start Screenshot")
+    _reg("pin.toggle", (*) => TrayTogglePin(), "Toggle Pin")
+
+    ; 其他功能
+    _reg("screenshot.closeAll", (*) => TrayCloseAllFloats(), "Close all floats")
+    _reg("pin.unpinAll", (*) => TrayUnpinAll(), "Unpin all")
+    _reg("pin.switch", (*) => TraySwitchFocus(), "Switch focus")
+    _reg("pin.changeColor", (*) => TrayChangeColor(), "Change border color")
+
+    ; 管理器
+    _reg("Global.OpenSettings", (*) => TrayOpenSettings(), "Open settings")
+    _reg("Global.Exit", (*) => TrayExit(), "Exit")
+}
+
+TrayCloseAllFloats() {
+    global ScreenshotApp, ModuleEnabled
+    if !ModuleEnabled["Screenshot"]
+        return
+    if ScreenshotApp
+        ScreenshotApp.CloseAllFloats()
 }
 
 ; =================================================
@@ -114,6 +198,10 @@ InitApplication() {
 ; =================================================
 SetupTrayMenu() {
     global ModuleEnabled
+
+    hkPicker := HotkeyManager.GetDisplayText("picker.start")
+    hkScreenshot := HotkeyManager.GetDisplayText("screenshot.start")
+    hkPin := HotkeyManager.GetDisplayText("pin.toggle")
 
     ; 设置托盘图标和提示
     A_IconTip := AppInfo.Name " v" AppInfo.Version
@@ -124,11 +212,11 @@ SetupTrayMenu() {
 
     ; 功能菜单 - 根据启用状态显示
     if ModuleEnabled["ColorPicker"]
-        tray.Add(T("TrayMenu", "ColorPicker", "🎨 屏幕取色") " (Alt+C)", TrayStartColorPicker)
+        tray.Add(T("TrayMenu", "ColorPicker", "🎨 屏幕取色") (hkPicker != "None" ? " (" hkPicker ")" : ""), TrayStartColorPicker)
     if ModuleEnabled["Screenshot"]
-        tray.Add(T("TrayMenu", "Screenshot", "📷 截图悬浮") " (Alt+S)", TrayStartScreenshot)
+        tray.Add(T("TrayMenu", "Screenshot", "📷 截图悬浮") (hkScreenshot != "None" ? " (" hkScreenshot ")" : ""), TrayStartScreenshot)
     if ModuleEnabled["PinWindow"]
-        tray.Add(T("TrayMenu", "PinWindow", "📌 置顶窗口") " (Alt+T)", TrayTogglePin)
+        tray.Add(T("TrayMenu", "PinWindow", "📌 置顶窗口") (hkPin != "None" ? " (" hkPin ")" : ""), TrayTogglePin)
 
     ; 只有当有启用的模块时才添加分隔线
     if (ModuleEnabled["ColorPicker"] || ModuleEnabled["Screenshot"] || ModuleEnabled["PinWindow"])
@@ -137,17 +225,19 @@ SetupTrayMenu() {
     ; 取色器子菜单 - 只在启用时显示
     if ModuleEnabled["ColorPicker"] {
         colorSubMenu := Menu()
-        colorSubMenu.Add(T("TrayMenu", "StartPicking", "🎨 开始取色 (Alt+C)"), TrayStartColorPicker)
+        colorSubMenu.Add(T("TrayMenu", "StartPicking", "🎨 开始取色") (hkPicker != "None" ? " (" hkPicker ")" : ""), TrayStartColorPicker)
         colorSubMenu.Add(T("TrayMenu", "ColorHistory", "📋 颜色历史记录"), TrayShowColorHistory)
         tray.Add(T("TrayMenu", "ColorPickerMenu", "取色器"), colorSubMenu)
     }
 
     ; 置顶窗口子菜单 - 只在启用时显示
     if ModuleEnabled["PinWindow"] {
+        hkUnpinAll := HotkeyManager.GetDisplayText("pin.unpinAll")
+        hkChangeColor := HotkeyManager.GetDisplayText("pin.changeColor")
         pinSubMenu := Menu()
-        pinSubMenu.Add(T("TrayMenu", "UnpinAll", "取消所有置顶 (Alt+Shift+T)"), TrayUnpinAll)
+        pinSubMenu.Add(T("TrayMenu", "UnpinAll", "取消所有置顶") (hkUnpinAll != "None" ? " (" hkUnpinAll ")" : ""), TrayUnpinAll)
         pinSubMenu.Add(T("TrayMenu", "SwitchFocus", "切换焦点"), TraySwitchFocus)
-        pinSubMenu.Add(T("TrayMenu", "ChangeBorderColor", "更改边框颜色 (Alt+Shift+C)"), TrayChangeColor)
+        pinSubMenu.Add(T("TrayMenu", "ChangeBorderColor", "更改边框颜色") (hkChangeColor != "None" ? " (" hkChangeColor ")" : ""), TrayChangeColor)
         tray.Add(T("TrayMenu", "PinWindowMenu", "置顶窗口操作"), pinSubMenu)
     }
 
@@ -189,11 +279,11 @@ SetupTrayMenu() {
 
     ; 设置默认动作（双击托盘图标）- 根据启用状态选择
     if ModuleEnabled["ColorPicker"]
-        tray.Default := T("TrayMenu", "ColorPicker", "🎨 屏幕取色") " (Alt+C)"
+        tray.Default := T("TrayMenu", "ColorPicker", "🎨 屏幕取色") (hkPicker != "None" ? " (" hkPicker ")" : "")
     else if ModuleEnabled["Screenshot"]
-        tray.Default := T("TrayMenu", "Screenshot", "📷 截图悬浮") " (Alt+S)"
+        tray.Default := T("TrayMenu", "Screenshot", "📷 截图悬浮") (hkScreenshot != "None" ? " (" hkScreenshot ")" : "")
     else if ModuleEnabled["PinWindow"]
-        tray.Default := T("TrayMenu", "PinWindow", "📌 置顶窗口") " (Alt+T)"
+        tray.Default := T("TrayMenu", "PinWindow", "📌 置顶窗口") (hkPin != "None" ? " (" hkPin ")" : "")
 }
 
 ; 切换模块启用状态（从托盘菜单调用）
@@ -334,69 +424,6 @@ TrayExit(*) {
 }
 
 ; =================================================
-; 快捷键定义
-; =================================================
-
-; Alt + C: 屏幕取色
-!c:: {
-    global ColorPickerApp, ModuleEnabled
-    if !ModuleEnabled["ColorPicker"]
-        return
-    if ColorPickerApp
-        ColorPickerApp.Start()
-}
-
-; Alt + S: 截图
-!s:: {
-    global ScreenshotApp, ModuleEnabled
-    if !ModuleEnabled["Screenshot"]
-        return
-    if ScreenshotApp
-        ScreenshotApp.Start()
-}
-
-; Alt + T: 切换当前窗口置顶
-!t:: {
-    global PinWindowApp, ModuleEnabled
-    if !ModuleEnabled["PinWindow"]
-        return
-    if PinWindowApp
-        PinWindowApp.ToggleCurrent()
-}
-
-; Alt + Shift + T: 取消所有置顶
-!+t:: {
-    global PinWindowApp, ModuleEnabled
-    if !ModuleEnabled["PinWindow"]
-        return
-    if PinWindowApp {
-        count := PinWindowApp.UnpinAll()
-        if (count > 0)
-            ShowNotify("已取消 " count " 个窗口的置顶")
-        else
-            ShowNotify("没有置顶的窗口")
-    }
-}
-
-; Alt + Shift + C: 更改边框颜色
-!+c:: {
-    global PinWindowApp, ModuleEnabled
-    if !ModuleEnabled["PinWindow"]
-        return
-    if PinWindowApp
-        PinWindowApp.ChangeColor()
-}
-
-; Ctrl + Alt + A: 关闭所有悬浮窗
-^!a:: {
-    global ScreenshotApp, ModuleEnabled
-    if !ModuleEnabled["Screenshot"]
-        return
-    if ScreenshotApp
-        ScreenshotApp.CloseAllFloats()
-}
-
-; =================================================
 ; 回调函数
 ; =================================================
 
@@ -421,8 +448,11 @@ OnWindowUnpinned(hwnd, title) {
     Logger.Info("Window unpinned: " title)
 }
 
-ShowNotify(text) {
-    ShowNotification("", text)
+ShowNotify(titleOrText, text := "") {
+    if (text = "")
+        ShowNotification("", titleOrText)
+    else
+        ShowNotification(titleOrText, text)
 }
 
 ; =================================================
@@ -432,7 +462,7 @@ OnExit(ExitCleanup)
 
 ExitCleanup(reason, code) {
     global ColorPickerApp, ScreenshotApp, PinWindowApp
-    global MainWin, SettingsWin, AboutDlg
+    global SettingsWin, AboutDlg
 
     Logger.Info("ScriptManager shutting down...")
 
@@ -446,9 +476,6 @@ ExitCleanup(reason, code) {
     if PinWindowApp
         PinWindowApp.Destroy()
 
-    if MainWin
-        MainWin.Destroy()
-
     if SettingsWin
         SettingsWin.Destroy()
 
@@ -457,6 +484,9 @@ ExitCleanup(reason, code) {
 
     ; 关闭 GDI+
     GDIPlus.Shutdown()
+
+    ; 刷新日志缓冲（如果启用了文件日志）
+    try Logger.Flush()
 
     Logger.Info("ScriptManager exited")
     return 0

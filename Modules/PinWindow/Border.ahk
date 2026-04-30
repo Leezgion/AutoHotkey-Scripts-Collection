@@ -20,6 +20,10 @@ class WindowBorder {
         this._right := ""
         this._lastCoords := ""
 
+        ; State
+        this._destroyed := false
+        this._flashTimer := ""
+
         try {
             this.Title := WinGetTitle(targetHwnd)
             if (this.Title = "")
@@ -29,6 +33,53 @@ class WindowBorder {
         }
 
         this._CreateBorders()
+    }
+
+    ; -------------------------------------------------
+    ; 私有方法：判断 GUI 是否有窗口
+    ; -------------------------------------------------
+    _HasGuiWindow(guiObj) {
+        try {
+            return IsObject(guiObj) && guiObj.Hwnd
+        } catch {
+            return false
+        }
+    }
+
+    ; -------------------------------------------------
+    ; 私有方法：确保边框 GUI 可用
+    ; -------------------------------------------------
+    _EnsureBorders() {
+        if this._destroyed
+            return false
+
+        if (this._HasGuiWindow(this._top)
+            && this._HasGuiWindow(this._bottom)
+            && this._HasGuiWindow(this._left)
+            && this._HasGuiWindow(this._right)) {
+            return true
+        }
+
+        ; 可能已被 Destroy()，或创建失败；重建一套
+        try {
+            this._SafeDestroyBorders()
+        }
+        try {
+            this._CreateBorders()
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    ; -------------------------------------------------
+    ; 私有方法：安全销毁边框 GUI（不改变 _destroyed）
+    ; -------------------------------------------------
+    _SafeDestroyBorders() {
+        try this._top.Destroy()
+        try this._bottom.Destroy()
+        try this._left.Destroy()
+        try this._right.Destroy()
     }
 
     ; -------------------------------------------------
@@ -52,7 +103,13 @@ class WindowBorder {
     ; Update - 更新边框位置
     ; -------------------------------------------------
     Update(force := false) {
+        if this._destroyed
+            return false
+
         if !WinExist(this.Hwnd)
+            return false
+
+        if !this._EnsureBorders()
             return false
 
         try {
@@ -80,10 +137,10 @@ class WindowBorder {
         bt := this.Thickness
 
         ; 显示四条边框
-        this._top.Show("NA x" x " y" y " w" w " h" bt)
-        this._bottom.Show("NA x" x " y" (y + h - bt) " w" w " h" bt)
-        this._left.Show("NA x" x " y" y " w" bt " h" h)
-        this._right.Show("NA x" (x + w - bt) " y" y " w" bt " h" h)
+        try this._top.Show("NA x" x " y" y " w" w " h" bt)
+        try this._bottom.Show("NA x" x " y" (y + h - bt) " w" w " h" bt)
+        try this._left.Show("NA x" x " y" y " w" bt " h" h)
+        try this._right.Show("NA x" (x + w - bt) " y" y " w" bt " h" h)
 
         return true
     }
@@ -92,60 +149,75 @@ class WindowBorder {
     ; Hide - 隐藏边框
     ; -------------------------------------------------
     Hide() {
-        this._top.Hide()
-        this._bottom.Hide()
-        this._left.Hide()
-        this._right.Hide()
+        if this._destroyed
+            return
+
+        try this._top.Hide()
+        try this._bottom.Hide()
+        try this._left.Hide()
+        try this._right.Hide()
     }
 
     ; -------------------------------------------------
     ; Show - 显示边框
     ; -------------------------------------------------
     Show() {
-        this.Update(true)
+        if this._destroyed
+            return false
+        return this.Update(true)
     }
 
     ; -------------------------------------------------
     ; SetColor - 设置颜色
     ; -------------------------------------------------
     SetColor(color) {
+        if this._destroyed
+            return
+
         this.Color := color
-        this._top.BackColor := color
-        this._bottom.BackColor := color
-        this._left.BackColor := color
-        this._right.BackColor := color
+        if this._EnsureBorders() {
+            try this._top.BackColor := color
+            try this._bottom.BackColor := color
+            try this._left.BackColor := color
+            try this._right.BackColor := color
+        }
     }
 
     ; -------------------------------------------------
     ; Flash - 闪烁动画
     ; -------------------------------------------------
     Flash(count := 3, interval := 100) {
+        if this._destroyed
+            return
+
+        ; 取消之前尚未完成的闪烁计时器
+        if IsObject(this._flashTimer)
+            SetTimer(this._flashTimer, 0)
+
         flashNum := 0
 
-        FlashStep() {
-            flashNum++
+        this._flashTimer := (*) => (
+            this._destroyed ? 0 : (
+                flashNum++,
+                (Mod(flashNum, 2) = 1) ? this.Hide() : this.Show(),
+                (flashNum < count * 2) ? SetTimer(this._flashTimer, -interval) : 0
+            )
+        )
 
-            if (Mod(flashNum, 2) = 1)
-                this.Hide()
-            else
-                this.Show()
-
-            if (flashNum < count * 2)
-                SetTimer(FlashStep, -interval)
-        }
-
-        SetTimer(FlashStep, -interval)
+        SetTimer(this._flashTimer, -interval)
     }
 
     ; -------------------------------------------------
     ; Destroy - 销毁边框
     ; -------------------------------------------------
     Destroy() {
-        try {
-            this._top.Destroy()
-            this._bottom.Destroy()
-            this._left.Destroy()
-            this._right.Destroy()
-        }
+        ; 先标记销毁，避免定时器再次触发 Show/Hide
+        this._destroyed := true
+
+        ; 停止尚未完成的闪烁
+        if IsObject(this._flashTimer)
+            SetTimer(this._flashTimer, 0)
+
+        try this._SafeDestroyBorders()
     }
 }

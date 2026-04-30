@@ -17,6 +17,7 @@
 class HotkeyManager {
     static _callbacks := Map()
     static _active := Map()
+    static _lastBindError := Map()
     static _initialized := false
     static _recording := false
     static _recordCallback := ""
@@ -43,9 +44,14 @@ class HotkeyManager {
     static Register(key, callback, context := "") {
         this.Init()
 
+        ; 允许传入函数名字符串；统一转换为可调用对象
+        cb := callback
+        if (Type(cb) = "String")
+            cb := Func(cb)
+
         ; 存储回调
         this._callbacks[key] := {
-            callback: callback,
+            callback: cb,
             context: context
         }
 
@@ -67,8 +73,8 @@ class HotkeyManager {
 
         ; 解除绑定
         if this._active.Has(key) {
-            hotkey := this._active[key]
-            try Hotkey(hotkey, "Off")
+            hkStr := this._active[key]
+            try Hotkey(hkStr, "Off")
             this._active.Delete(key)
         }
 
@@ -122,30 +128,130 @@ class HotkeyManager {
         if (!hotkey || hotkey = "" || hotkey = "None")
             return "None"
 
-        ; 转换修饰符为可读格式
-        result := hotkey
-        result := StrReplace(result, "#", "Win+")
-        result := StrReplace(result, "!", "Alt+")
-        result := StrReplace(result, "^", "Ctrl+")
-        result := StrReplace(result, "+", "Shift+")
-        result := StrReplace(result, " & ", "+")
+        hk := Trim(hotkey, " `t`r`n")
+        if (hk = "")
+            return "None"
 
-        ; 首字母大写
-        result := RegExReplace(result, "([a-z])$", "$U1")
+        ; 处理组合键：例如 "CapsLock & Space"
+        if InStr(hk, " & ") {
+            parts := StrSplit(hk, " & ")
+            left := parts.Length >= 1 ? Trim(parts[1]) : ""
+            right := parts.Length >= 2 ? Trim(parts[2]) : ""
+            return (left != "" && right != "") ? (left "+" right) : hk
+        }
 
-        return result
+        ; 解析前缀修饰符（支持 *, ~ 等前缀时忽略显示）
+        i := 1
+        while (i <= StrLen(hk)) {
+            ch := SubStr(hk, i, 1)
+            if (ch = "*" || ch = "~" || ch = "$") {
+                i += 1
+                continue
+            }
+            break
+        }
+
+        win := false, ctrl := false, alt := false, shift := false
+        while (i <= StrLen(hk)) {
+            ch := SubStr(hk, i, 1)
+            if (ch = "#") {
+                win := true
+            } else if (ch = "^") {
+                ctrl := true
+            } else if (ch = "!") {
+                alt := true
+            } else if (ch = "+") {
+                shift := true
+            } else {
+                break
+            }
+            i += 1
+        }
+
+        key := Trim(SubStr(hk, i))
+        if (key = "")
+            return "None"
+
+        ; 常见按键名友好化（仅用于展示）
+        lowerKey := StrLower(key)
+        switch lowerKey {
+            case "escape": key := "Esc"
+            case "lbutton": key := "Left Click"
+            case "rbutton": key := "Right Click"
+            case "mbutton": key := "Middle Click"
+            case "xbutton1": key := "Mouse 4"
+            case "xbutton2": key := "Mouse 5"
+            case "wheelup": key := "Wheel Up"
+            case "wheeldown": key := "Wheel Down"
+            case "wheelleft": key := "Wheel Left"
+            case "wheelright": key := "Wheel Right"
+            case "up": key := "Up"
+            case "down": key := "Down"
+            case "left": key := "Left"
+            case "right": key := "Right"
+            case "pgup": key := "Page Up"
+            case "pgdn": key := "Page Down"
+            case "del": key := "Delete"
+            case "ins": key := "Insert"
+        }
+
+        ; 单字符按键统一大写
+        if (StrLen(key) = 1)
+            key := StrUpper(key)
+
+        partsOut := []
+        if ctrl
+            partsOut.Push("Ctrl")
+        if alt
+            partsOut.Push("Alt")
+        if shift
+            partsOut.Push("Shift")
+        if win
+            partsOut.Push("Win")
+        partsOut.Push(key)
+
+        out := ""
+        for idx, part in partsOut {
+            out .= (idx = 1 ? part : "+" part)
+        }
+        return out
     }
 
     ; -------------------------------------------------
     ; ParseHotkey - 解析可读文本为快捷键格式
     ; -------------------------------------------------
     static ParseHotkey(text) {
-        result := text
+        result := Trim(text, " `t`r`n")
+        ; 支持用户手动写入的可读形式，例如 "Alt+S" / "Ctrl+Shift+S"
         result := StrReplace(result, "Win+", "#")
         result := StrReplace(result, "Alt+", "!")
         result := StrReplace(result, "Ctrl+", "^")
         result := StrReplace(result, "Shift+", "+")
         return result
+    }
+
+    ; -------------------------------------------------
+    ; _NormalizeHotkey - 规范化快捷键字符串（用于绑定）
+    ; 目标：容忍用户手动编辑 hotkeys.ini 时写成 "Alt+S" 这种可读形式
+    ; -------------------------------------------------
+    static _NormalizeHotkey(hotkey) {
+        hk := Trim(hotkey, " `t`r`n")
+        if (!hk || hk = "" || hk = "None")
+            return ""
+
+        ; 如果是可读形式（以 Ctrl+/Alt+/Shift+/Win+ 开头），转换为 AHK 形式
+        ; 例如 "Alt+S" -> "!S"（AHK 不区分大小写）
+        if RegExMatch(hk, "i)^(?:Win\+|Ctrl\+|Alt\+|Shift\+)")
+            hk := this.ParseHotkey(hk)
+
+        return Trim(hk, " `t`r`n")
+    }
+
+    ; -------------------------------------------------
+    ; GetLastBindError - 获取最近一次绑定失败原因
+    ; -------------------------------------------------
+    static GetLastBindError(key) {
+        return this._lastBindError.Has(key) ? this._lastBindError[key] : ""
     }
 
     ; -------------------------------------------------
@@ -229,20 +335,47 @@ class HotkeyManager {
     ; -------------------------------------------------
     ; 私有方法：绑定快捷键
     ; -------------------------------------------------
-    static _BindHotkey(key, hotkey) {
+    static _BindHotkey(key, hotkeyStr) {
         if !this._callbacks.Has(key)
             return false
 
         info := this._callbacks[key]
 
+        cb := info.callback
+        if (Type(cb) = "String") {
+            cb := Func(cb)
+            info.callback := cb
+        }
+
+        ; 确保回调可调用
+        if !(IsObject(cb) && cb.HasMethod("Call")) {
+            this._lastBindError[key] := "callback not callable (CallbackType=" Type(cb) ")"
+            return false
+        }
+
+        hk := this._NormalizeHotkey(hotkeyStr)
+        if (!hk || hk = "" || hk = "None")
+            return true
+
+        cbType := ""
+        hkFuncType := ""
+        try cbType := Type(cb)
+        catch
+            cbType := "<TypeError>"
+        try hkFuncType := Type(Hotkey)
+        catch
+            hkFuncType := "<TypeError>"
+
         try {
-            ; 创建闭包来调用回调
-            boundCallback := info.callback
-            Hotkey(hotkey, (*) => boundCallback(), "On")
-            this._active[key] := hotkey
+            Hotkey(hk, cb, "On")
+            this._active[key] := hk
+            if this._lastBindError.Has(key)
+                this._lastBindError.Delete(key)
             return true
         } catch as e {
-            OutputDebug("Hotkey bind failed: " key " = " hotkey " - " e.Message)
+            err := e.Message
+            this._lastBindError[key] := "'" hk "' - " err " (HotkeyType=" hkFuncType ", CallbackType=" cbType ")"
+            OutputDebug("Hotkey bind failed: " key " = " hk " - " err)
             return false
         }
     }

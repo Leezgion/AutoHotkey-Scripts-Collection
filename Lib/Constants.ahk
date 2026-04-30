@@ -97,18 +97,18 @@ class BorderColors {
 ; -------------------------------------------------
 class DefaultHotkeys {
     ; 屏幕取色
-    static PickerStart := "#+c"          ; Win+Shift+C
+    static PickerStart := "!c"           ; Alt+C
     static PickerCancel := "Escape"
 
     ; 截图悬浮
-    static ScreenshotStart := "#+s"      ; Win+Shift+S
-    static ScreenshotCloseAll := "#+q"   ; Win+Shift+Q
+    static ScreenshotStart := "!s"       ; Alt+S
+    static ScreenshotCloseAll := "^!a"   ; Ctrl+Alt+A
 
     ; 置顶窗口
-    static PinToggle := "CapsLock & Space"
-    static PinUnpinAll := "CapsLock & Escape"
-    static PinSwitch := "CapsLock & Tab"
-    static PinChangeColor := "CapsLock & c"
+    static PinToggle := "!t"            ; Alt+T
+    static PinUnpinAll := "!+t"         ; Alt+Shift+T
+    static PinSwitch := "!Tab"          ; Alt+Tab
+    static PinChangeColor := "!+c"      ; Alt+Shift+C
 
     ; 管理器
     static ManagerReloadAll := "#!r"     ; Win+Alt+R
@@ -161,8 +161,8 @@ class Defaults {
 ; -------------------------------------------------
 class Paths {
     static Config := A_ScriptDir "\Config"
-    static Settings := A_ScriptDir "\Config\settings.json"
-    static Hotkeys := A_ScriptDir "\Config\hotkeys.json"
+    static Settings := A_ScriptDir "\Config\settings.ini"
+    static Hotkeys := A_ScriptDir "\Config\hotkeys.ini"
     static Log := A_ScriptDir "\Config\app.log"
     static Lang := A_ScriptDir "\Lang"
     static Screenshots := A_ScriptDir "\Screenshots"

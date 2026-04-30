@@ -51,7 +51,6 @@ AutoHotkey/
 │       └── Border.ahk          # Border drawing component
 │
 ├── GUI/                        # 🖼️ GUI components
-│   ├── MainWindow.ahk          # Main control panel
 │   ├── SettingsWindow.ahk      # Settings dialog
 │   └── AboutDialog.ahk         # About dialog
 │
@@ -84,6 +83,7 @@ AutoHotkey/
    - [AutoHotkey v2.0+](https://www.autohotkey.com/)
 
 2. **Run**
+
    ```
    Double-click ScriptManager.ahk
    ```
@@ -94,6 +94,8 @@ AutoHotkey/
 
 ### ⌨️ Hotkeys
 
+Hotkeys are configured in `Config/hotkeys.ini` (source of truth). Defaults below come from that file and can be changed.
+
 | Hotkey | Function |
 |--------|----------|
 | `Alt + C` | 🎨 Start color picker |
@@ -102,6 +104,8 @@ AutoHotkey/
 | `Alt + Shift + T` | Unpin all windows |
 | `Alt + Shift + C` | Change border color |
 | `Ctrl + Alt + A` | Close all floating screenshots |
+| `Alt + ,` | Open settings |
+| `Alt + Q` | Exit |
 
 ### 🎨 Color Picker Usage
 
@@ -125,9 +129,7 @@ AutoHotkey/
 ### 📌 Window Pin Usage
 
 - Pinned windows get colorful borders (10 colors available)
-- **CapsLock + Space** - Toggle pin (alternative)
-- **CapsLock + Tab** - Cycle through pinned windows
-- **CapsLock + C** - Change border color
+- Hotkeys can be customized in `Config/hotkeys.ini`
 
 ---
 
@@ -161,7 +163,6 @@ AutoHotkey/
 │   └── PinWindow/              # 置顶模块
 │
 ├── GUI/                        # 🖼️ GUI 组件
-│   ├── MainWindow.ahk          # 主控制面板
 │   ├── SettingsWindow.ahk      # 设置窗口
 │   └── AboutDialog.ahk         # 关于对话框
 │
@@ -189,6 +190,7 @@ AutoHotkey/
    - [AutoHotkey v2.0+](https://www.autohotkey.com/)
 
 2. **运行**
+
    ```
    双击 ScriptManager.ahk
    ```
@@ -199,6 +201,8 @@ AutoHotkey/
 
 ### ⌨️ 快捷键
 
+快捷键以 `Config/hotkeys.ini` 为准（唯一配置来源）。下表默认值来自该文件，均可修改。
+
 | 快捷键 | 功能 |
 |--------|------|
 | `Alt + C` | 🎨 开始取色 |
@@ -207,6 +211,8 @@ AutoHotkey/
 | `Alt + Shift + T` | 取消所有置顶 |
 | `Alt + Shift + C` | 更改边框颜色 |
 | `Ctrl + Alt + A` | 关闭所有悬浮截图 |
+| `Alt + ,` | 打开设置 |
+| `Alt + Q` | 退出 |
 
 ### 🎨 取色器操作
 
@@ -230,9 +236,7 @@ AutoHotkey/
 ### 📌 置顶操作
 
 - 置顶窗口会显示彩色边框（10种颜色自动分配）
-- **CapsLock + Space** - 切换置顶（备用）
-- **CapsLock + Tab** - 在置顶窗口间切换
-- **CapsLock + C** - 更改边框颜色
+- 可在 `Config/hotkeys.ini` 自定义快捷键
 
 ---
 

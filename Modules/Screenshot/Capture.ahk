@@ -4,6 +4,7 @@
 
 #Include ..\..\Lib\GDIPlus.ahk
 #Include ..\..\Lib\Constants.ahk
+#Include ..\..\Lib\ConfigManager.ahk
 #Include Selection.ahk
 #Include FloatWindow.ahk
 
@@ -23,7 +24,9 @@ class ScreenCapture {
             SelectionColor: "00AAFF",
             BorderWidth: 3,
             MaxFloats: 20,
-            DefaultOpacity: 255
+            DefaultOpacity: 255,
+            DefaultFormat: "PNG",
+            AutoCopy: true
         }
 
         ; 状态
@@ -32,6 +35,11 @@ class ScreenCapture {
         ; 组件
         this._selection := ""
         this._windowManager := ""
+
+        ; 绑定回调（用于正确解绑 OnMessage）
+        this._wmLButtonDown := ObjBindMethod(this, "_OnLButtonDown")
+        this._wmMouseMove := ObjBindMethod(this, "_OnMouseMove")
+        this._wmLButtonUp := ObjBindMethod(this, "_OnLButtonUp")
 
         ; GDI+ Token
         this._gdipToken := 0
@@ -78,12 +86,14 @@ class ScreenCapture {
         Cursor.SetCross()
 
         ; 监听鼠标事件
-        OnMessage(0x201, ObjBindMethod(this, "_OnLButtonDown"))
-        OnMessage(0x200, ObjBindMethod(this, "_OnMouseMove"))
-        OnMessage(0x202, ObjBindMethod(this, "_OnLButtonUp"))
+        OnMessage(0x201, this._wmLButtonDown)
+        OnMessage(0x200, this._wmMouseMove)
+        OnMessage(0x202, this._wmLButtonUp)
 
-        ; 绑定 ESC
-        Hotkey("*Escape", (*) => this.Cancel(), "On")
+        ; 绑定取消热键（默认 Escape）
+        this._cancelHk := ConfigManager.GetHotkey("Screenshot.Cancel")
+        if (this._cancelHk && this._cancelHk != "" && this._cancelHk != "None")
+            Hotkey("*" this._cancelHk, (*) => this.Cancel(), "On")
 
         return true
     }
@@ -206,19 +216,30 @@ class ScreenCapture {
         }
 
         ; 保存临时文件
-        tempFile := A_Temp "\ahk_screenshot_" A_TickCount ".png"
-        this._SaveBitmap(pBitmap, tempFile)
+        fmt := StrUpper(this.Config.DefaultFormat)
+        ext := (fmt = "JPG" || fmt = "JPEG") ? "jpg" : (fmt = "BMP") ? "bmp" : "png"
+        tempFile := A_Temp "\ahk_screenshot_" A_TickCount "." ext
+        this._SaveBitmap(pBitmap, tempFile, fmt)
         this._DisposeBitmap(pBitmap)
 
-        ; 计算显示位置
-        screenW := SysGet(78)
-        screenH := SysGet(79)
+        ; 计算显示位置（虚拟屏幕坐标，支持多显示器/负坐标）
+        vLeft := SysGet(76)
+        vTop := SysGet(77)
+        vW := SysGet(78)
+        vH := SysGet(79)
+        vRight := vLeft + vW
+        vBottom := vTop + vH
         showX := x + 20
         showY := y + 20
-        if (showX + w > screenW)
-            showX := screenW - w - 20
-        if (showY + h > screenH)
-            showY := screenH - h - 20
+        if (showX + w > vRight)
+            showX := vRight - w - 20
+        if (showY + h > vBottom)
+            showY := vBottom - h - 20
+
+        if (showX < vLeft)
+            showX := vLeft + 20
+        if (showY < vTop)
+            showY := vTop + 20
 
         ; 创建悬浮窗
         floatWin := FloatWindow(tempFile, w, h, showX, showY)
@@ -226,6 +247,9 @@ class ScreenCapture {
         floatWin.OnSave := ObjBindMethod(this, "_OnFloatSave")
 
         this._windowManager.Add(floatWin)
+
+        if this.Config.AutoCopy
+            this._OnFloatCopy(floatWin)
 
         if this.OnCapture {
             callback := this.OnCapture
@@ -268,12 +292,15 @@ class ScreenCapture {
     ; -------------------------------------------------
     _Cleanup() {
         ; 移除消息监听
-        OnMessage(0x201, ObjBindMethod(this, "_OnLButtonDown"), 0)
-        OnMessage(0x200, ObjBindMethod(this, "_OnMouseMove"), 0)
-        OnMessage(0x202, ObjBindMethod(this, "_OnLButtonUp"), 0)
+        OnMessage(0x201, this._wmLButtonDown, 0)
+        OnMessage(0x200, this._wmMouseMove, 0)
+        OnMessage(0x202, this._wmLButtonUp, 0)
 
         ; 解除热键
-        try Hotkey("*Escape", "Off")
+        try {
+            if (this.HasProp("_cancelHk") && this._cancelHk && this._cancelHk != "" && this._cancelHk != "None")
+                Hotkey("*" this._cancelHk, "Off")
+        }
 
         ; 恢复鼠标
         Cursor.Restore()
@@ -339,10 +366,27 @@ class ScreenCapture {
         return pBitmap
     }
 
-    _SaveBitmap(pBitmap, filePath) {
-        CLSID := Buffer(16)
-        DllCall("ole32\CLSIDFromString", "WStr", "{557CF406-1A04-11D3-9A73-0000F81EF32E}", "Ptr", CLSID)
-        DllCall("gdiplus\GdipSaveImageToFile", "Ptr", pBitmap, "WStr", filePath, "Ptr", CLSID, "Ptr", 0)
+    _SaveBitmap(pBitmap, filePath, format := "PNG") {
+        clsidStr := this._GetEncoderClsid(format)
+        if !clsidStr
+            clsidStr := "{557CF406-1A04-11D3-9A73-0000F81EF32E}"  ; PNG
+
+        clsidBuf := Buffer(16)
+        DllCall("ole32\CLSIDFromString", "WStr", clsidStr, "Ptr", clsidBuf)
+        DllCall("gdiplus\GdipSaveImageToFile", "Ptr", pBitmap, "WStr", filePath, "Ptr", clsidBuf, "Ptr", 0)
+    }
+
+    _GetEncoderClsid(format) {
+        fmt := StrUpper(format)
+        switch fmt {
+            case "PNG":
+                return "{557CF406-1A04-11D3-9A73-0000F81EF32E}"
+            case "JPG", "JPEG":
+                return "{557CF401-1A04-11D3-9A73-0000F81EF32E}"
+            case "BMP":
+                return "{557CF400-1A04-11D3-9A73-0000F81EF32E}"
+        }
+        return ""
     }
 
     _LoadBitmap(filePath) {

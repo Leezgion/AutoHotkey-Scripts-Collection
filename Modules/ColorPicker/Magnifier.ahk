@@ -6,12 +6,15 @@ class Magnifier {
     ; -------------------------------------------------
     ; __New - 构造函数
     ; -------------------------------------------------
-    __New(size := 150, zoom := 8) {
+    __New(size := 150, zoom := 8, showGrid := true, showCrosshair := true) {
         ; 配置
         this.Size := size
         this.Zoom := zoom
         this.MinZoom := 2
         this.MaxZoom := 20
+
+        this.ShowGrid := showGrid
+        this.ShowCrosshair := showCrosshair
 
         ; GUI
         this._gui := ""
@@ -116,7 +119,14 @@ class Magnifier {
             , "Ptr", hdcScreen, "Int", sx, "Int", sy, "Int", sw, "Int", sh
             , "UInt", 0x00CC0020)
 
-        this._DrawCrosshair(hdcMem, dw, dh)
+        ; 绘制辅助线（根据设置）
+        if this.ShowGrid {
+            cell := sw > 0 ? Floor(dw / sw) : 0
+            if (cell >= 2)
+                this._DrawCenterGrid(hdcMem, dw, dh, cell)
+        }
+        if this.ShowCrosshair
+            this._DrawCrosshair(hdcMem, dw, dh)
         this._SaveBitmap(hBitmap, dw, dh, filePath)
 
         DllCall("SelectObject", "Ptr", hdcMem, "Ptr", hOld)
@@ -157,6 +167,44 @@ class Magnifier {
         DllCall("SelectObject", "Ptr", hdc, "Ptr", hOldPen)
         DllCall("DeleteObject", "Ptr", hPenWhite)
         DllCall("DeleteObject", "Ptr", hPenBlack)
+    }
+
+    ; -------------------------------------------------
+    ; 私有方法：绘制中心像素网格（仅绘制中心格边框，避免过重绘制）
+    ; -------------------------------------------------
+    _DrawCenterGrid(hdc, w, h, cell) {
+        cx := w // 2
+        cy := h // 2
+
+        half := cell // 2
+        x1 := cx - half
+        y1 := cy - half
+        x2 := x1 + cell
+        y2 := y1 + cell
+
+        hPenBlack := DllCall("CreatePen", "Int", 0, "Int", 1, "UInt", 0x000000, "Ptr")
+        hPenWhite := DllCall("CreatePen", "Int", 0, "Int", 1, "UInt", 0xFFFFFF, "Ptr")
+
+        hOldPen := DllCall("SelectObject", "Ptr", hdc, "Ptr", hPenBlack, "Ptr")
+
+        ; 黑色外框
+        DllCall("MoveToEx", "Ptr", hdc, "Int", x1, "Int", y1, "Ptr", 0)
+        DllCall("LineTo", "Ptr", hdc, "Int", x2, "Int", y1)
+        DllCall("LineTo", "Ptr", hdc, "Int", x2, "Int", y2)
+        DllCall("LineTo", "Ptr", hdc, "Int", x1, "Int", y2)
+        DllCall("LineTo", "Ptr", hdc, "Int", x1, "Int", y1)
+
+        ; 白色内框（向内 1px）
+        DllCall("SelectObject", "Ptr", hdc, "Ptr", hPenWhite, "Ptr")
+        DllCall("MoveToEx", "Ptr", hdc, "Int", x1 + 1, "Int", y1 + 1, "Ptr", 0)
+        DllCall("LineTo", "Ptr", hdc, "Int", x2 - 1, "Int", y1 + 1)
+        DllCall("LineTo", "Ptr", hdc, "Int", x2 - 1, "Int", y2 - 1)
+        DllCall("LineTo", "Ptr", hdc, "Int", x1 + 1, "Int", y2 - 1)
+        DllCall("LineTo", "Ptr", hdc, "Int", x1 + 1, "Int", y1 + 1)
+
+        DllCall("SelectObject", "Ptr", hdc, "Ptr", hOldPen)
+        DllCall("DeleteObject", "Ptr", hPenBlack)
+        DllCall("DeleteObject", "Ptr", hPenWhite)
     }
 
     ; -------------------------------------------------
